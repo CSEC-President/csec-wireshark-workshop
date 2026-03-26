@@ -71,6 +71,8 @@ There are 5 levels of increasing difficulty. Each level must be completed before
 | 4 | Telnet | Reconstructing a session from a TCP stream |
 | 5 | TFTP | Reading individual packet payloads in hex view |
 
+As a bonus exercise, a USB keyboard capture is also included in `keyboard.pcapng`. Some programming experience may be helpful to solve this challenge.
+
 ---
 
 ## Differences from a Real Network Capture
@@ -183,6 +185,9 @@ Telnet sends everything character by character in plaintext, including passwords
 
 ### TFTP (Level 5)
 TFTP is a simple file transfer protocol over UDP (port 69). Files are sent in 512-byte blocks. Each block is a separate DATA packet with a block number. There is no authentication at all.
+
+### USB HID (Bonus)
+HID (Human Interface Devices) is a set of protocols for various input devices to communicate over USB. The provided capture is of a USB keyboard. You may find the [HID Usage Tables](https://usb.org/document-library/hid-usage-tables-17) to be a useful resource.
 
 ---
 
