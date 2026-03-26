@@ -69,7 +69,7 @@ There are 5 levels of increasing difficulty. Each level must be completed before
 | 2 | HTTP | Finding and decoding Base64 headers |
 | 3 | FTP | Filtering by response codes in noisy traffic |
 | 4 | Telnet | Reconstructing a session from a TCP stream |
-| 5 | TFTP | Reading individual packet payloads in hex view |
+| 5 | TFTP | Identifying and retrieving a transferred file |
 
 ---
 

@@ -26,7 +26,7 @@ from urllib.parse import parse_qs
 
 # ── SETUP ────────────────────────────────────────────────────────────────
 
-REQUIRED_PACKAGES = ["rich", "pyftpdlib", "tftpy"]
+REQUIRED_PACKAGES = ["rich", "pyftpdlib", "tftpy", "Pillow"]
 SETUP_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.log")
 
 
@@ -87,6 +87,7 @@ def run_setup():
         "rich":      "from rich.console import Console",
         "pyftpdlib": "from pyftpdlib.handlers import FTPHandler",
         "tftpy":     "import tftpy",
+        "Pillow":    "from PIL import Image",
     }
     for pkg, stmt in verify_map.items():
         result = subprocess.run(
@@ -506,20 +507,47 @@ def start_telnet():
 # ── TFTP SERVER (Level 5) ───────────────────────────────────────────────
 
 def _create_tftp_files():
-    """Create TFTP challenge file: first byte of each 512-byte block spells the flag."""
+    """Create TFTP challenge image with the flag drawn on it."""
     os.makedirs(TFTP_DIR, exist_ok=True)
 
-    filepath = os.path.join(TFTP_DIR, "firmware.bin")
-    with open(filepath, "wb") as f:
-        for ch in FLAG_5:
-            # Flag character is the first byte; rest is non-printable filler
-            f.write(bytes([ord(ch)]) + bytes(random.randint(0x80, 0xff) for _ in range(511)))
-        f.write(b"\x00" * 10)  # short final block signals EOF
+    filepath = os.path.join(TFTP_DIR, "confidential.png")
+    try:
+        from PIL import Image, ImageDraw, ImageFont
 
-    config_path = os.path.join(TFTP_DIR, "router-config.txt")
-    if not os.path.exists(config_path):
-        with open(config_path, "w") as f:
-            f.write("! Router Configuration\nhostname R1\nenable secret C1sc0!\n")
+        img = Image.new("RGB", (480, 240), color=(20, 20, 30))
+        draw = ImageDraw.Draw(img)
+
+        # Try to find a usable font, fall back to default
+        font_large = None
+        font_small = None
+        font_paths = [
+            "/System/Library/Fonts/Helvetica.ttc",           # macOS
+            "/Library/Fonts/Arial.ttf",                      # macOS
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux
+            os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
+                         "Fonts", "arial.ttf"),              # Windows
+        ]
+        for fp in font_paths:
+            try:
+                font_large = ImageFont.truetype(fp, 48)
+                font_small = ImageFont.truetype(fp, 20)
+                break
+            except (IOError, OSError):
+                continue
+        if font_large is None:
+            font_large = ImageFont.load_default()
+            font_small = font_large
+
+        draw.text((40, 30), "CONFIDENTIAL", fill=(180, 0, 0), font=font_small)
+        draw.line([(40, 58), (440, 58)], fill=(80, 0, 0), width=1)
+        draw.text((40, 90), FLAG_5, fill=(0, 220, 80), font=font_large)
+        draw.text((40, 170), "Property of Company Server", fill=(100, 100, 100), font=font_small)
+
+        img.save(filepath)
+    except ImportError:
+        # Pillow not available; write a minimal placeholder
+        with open(filepath, "wb") as f:
+            f.write(b"FLAG: " + FLAG_5.encode() + b"\n")
 
 
 def start_tftp():
@@ -644,7 +672,7 @@ def _bot_tftp_download():
             try:
                 client = tftpy.TftpClient("127.0.0.1", TFTP_PORT)
                 tmpfile = os.path.join(tempfile.gettempdir(), "snifflab_fw.tmp")
-                client.download("firmware.bin", tmpfile)
+                client.download("confidential.png", tmpfile)
                 try:
                     os.unlink(tmpfile)
                 except OSError:
@@ -764,26 +792,24 @@ LEVELS = {
         ),
     },
     5: {
-        "name": "Block by Block",
+        "name": "The Secret File",
         "proto": "TFTP",
         "desc": (
-            "A firmware file is being transferred over TFTP in the background.\n"
-            "The file looks like random binary data, but a secret message\n"
-            "is hidden in how TFTP splits the file into blocks.\n"
+            "A confidential file is being transferred over TFTP.\n"
+            "You don't know the filename or what it contains.\n"
+            "Use Wireshark to extract the file from the capture and open it.\n"
             "\n"
             "[bold]Your task:[/bold]\n"
             "  1. Make sure Wireshark is capturing\n"
-            "  2. Wait for the TFTP transfer to appear (~15 seconds)\n"
-            "  3. Look at each TFTP DATA packet individually\n"
-            "  4. The first byte of each block's payload is one letter\n"
-            "  5. Read the first bytes in order to spell out the flag\n"
+            "  2. Wait for the TFTP transfer to appear\n"
+            "  3. Extract the file directly from Wireshark\n"
+            "  4. Open the file and read the flag\n"
             "\n"
-            "[bold yellow]Submit:[/bold yellow] the word spelled by the first bytes  (e.g.  submit HELLO)"
+            "[bold yellow]Submit:[/bold yellow] the text shown in the image  (e.g.  submit S3CR3T)"
         ),
         "hint": (
-            "Filter for TFTP DATA packets using the opcode field.\n"
-            "Click on each DATA packet and examine the hex dump\n"
-            "at the bottom of the Wireshark window."
+            "Wireshark can extract files transferred over certain protocols.\n"
+            "Look in the File menu for an option related to exporting objects."
         ),
     },
 }
